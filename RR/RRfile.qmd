@@ -1,0 +1,348 @@
+---
+title: "Risk Analysis of Richtech Robotics (RR)"
+subtitle: "R based Quantitative Assessment"
+format: html
+editor: visual
+---
+
+# Risk Analysis of Richtech Robotics (RR)
+
+## Purpose
+
+This report evaluates the return behavior, volatility profile, downside risk, and market sensitivity of Richtech Robotics (RR) using daily price data retrieved from Yahoo Finance.
+
+The objective is to quantitatively access Richtech Robotics. I personally have been looking into this stock keenly through news and the Webull trading app. This is a simple analysis project I am performing so that I can explore RR through a more statistical lens, but to also showcase basic quantitative skills.
+
+### R code Setup
+
+```{r}
+library(quantmod)
+library(PerformanceAnalytics)
+library(tidyverse)
+library(xts)
+library(zoo)
+library(scales)
+
+
+#Function setup
+xts_to_df <- function(x, colname = "value") {
+  df <- data.frame(
+    Date = as.Date(index(x)),
+    value = as.numeric(coredata(x))
+  )
+  names(df)[2] <- colname
+  df
+}
+
+getSymbols("RR", src = "yahoo", from = "2025-01-01")
+getSymbols("^GSPC", src = "yahoo", from = "2025-01-01")
+
+rr_returns <- dailyReturn(Cl(RR))
+sp_returns <- dailyReturn(Cl(GSPC))
+
+```
+
+## Price Trend Analysis
+
+The price chart below shows the historical movement of the RR stock over the selected time horizon (2025, recent).
+
+```{r}
+#Price Chart
+rr_price <- Ad(RR)
+rr_price_df <- xts_to_df(rr_price, "Price")
+
+ggplot(rr_price_df, aes(Date, Price)) +
+  geom_line(linewidth = 0.9) +
+  scale_y_continuous(labels = dollar_format()) +
+  labs(
+    title = "Richtech Robotics (RR) — Adjusted Close Price",
+    x = NULL, y = "Price (USD)"
+  ) +
+  theme_minimal(base_size = 13)
+
+#Benchmark S&P 500
+sp_price <- Ad(GSPC)
+sp_price_df <- xts_to_df(sp_price, "Price")
+
+ggplot(sp_price_df, aes(Date, Price)) +
+  geom_line(linewidth = 0.9) +
+  labs(
+    title = "S&P 500 (^GSPC) — Adjusted Close",
+    x = NULL, y = "Index Level"
+  ) +
+  theme_minimal(base_size = 13)
+```
+
+-   RR traded between approximately \$1.50 (March 2025 low) and \$6.80 (October 2025 peak), representing a peak to trough swing of over 350% within the sample period.
+
+-   From January 2025 (\~\$3.00) to February 2026 (\~\$3.00), the net price change is roughly 0%, despite extreme intra-year volatility.
+
+-   The stock experienced multiple 50-100% directional moves within short timeframes, particularly during the late-Q3 to early-Q4 rally.
+
+**Real World Insight -** Large intra-year swings combined with flat net performance indicate speculative trading behavior - high opportunity potential but low price stability for long-term capital preservation.
+
+## Benchmark Comparison - S&P 500
+
+-   The S&P 500 declined from \~6000 to \~5000 in early 2025 (17%), then steadily recovered to \~6900 by early 2026 (\~+38% from trough).
+
+-   Unlike RR, the index exhibited a consistent upward recovery trend post-April 2025.
+
+-   The market's total move (\~+15-20% net) was materially smaller than RR's 300%+ internal swings.
+
+**Real World Insight -** The broad market displayed structured reocvery and stability, highlighting how RR's volatiltiy is firm-specific rather than purely macro-driven.
+
+## Daily Returns
+
+The plot below shows the daily returns volatility graph of RR.
+
+```{r}
+#Daily Returns
+rr_ret_df <- xts_to_df(rr_returns, "Return")
+
+ggplot(rr_ret_df, aes(Date, Return)) +
+  geom_line(linewidth = 0.6) +
+  scale_y_continuous(labels = percent_format(accuracy = 1)) +
+  labs(
+    title = "RR — Daily Returns",
+    x = NULL, y = "Daily Return"
+  ) +
+  theme_minimal(base_size = 13)
+```
+
+-   RR experienced single-day returns exceeding +65% and losses approaching -25%.
+
+-   Most daily returns cluster between -5% and 5%, but extreme outliers materially widen dispersion.
+
+-   The magnitude of positive outliers is larger than negative ones, suggesting episodic speculative surges.
+
+**Real World Insight -** Frequent large return spikes increase liquidity and gap risk, dangerous for leveraged or short-term positions.
+
+## Distribution of Returns
+
+```{r}
+
+#Returns Distribution
+ggplot(rr_ret_df, aes(Return)) +
+  geom_histogram(bins = 40, color = "white") +
+  scale_x_continuous(labels = percent_format(accuracy = 1)) +
+  labs(
+    title = "RR — Distribution of Daily Returns",
+    x = "Daily Return", y = "Count"
+  ) +
+  theme_minimal(base_size = 13)
+```
+
+-   The return distribution is visibly right-skewed, with extreme positive outliers above +70%.
+
+<!-- -->
+
+-    Left tail observations extend to approximately -25%, confirming meaningful downside risk.
+
+<!-- -->
+
+-    The bulk of returns concentrate near 0%, but tail thickness indicates non-normal behavior.
+
+**Real World Insight -** Risk models assuming normal distribution likely underestimate RR’s true tail exposure, particularly during momentum-driven rallies.
+
+## Rolling Volatility
+
+```{r}
+
+#Rolling Volatility
+roll_vol_30 <- rollapply(rr_returns, width = 30, FUN = sd, align = "right", fill = NA) * sqrt(252)
+roll_vol_df <- xts_to_df(roll_vol_30, "Volatility")
+
+ggplot(roll_vol_df, aes(Date, Volatility)) +
+  geom_line(linewidth = 0.9) +
+  scale_y_continuous(labels = percent_format(accuracy = 1)) +
+  labs(
+    title = "RR — 30-Day Rolling Volatility (Annualized)",
+    x = NULL, y = "Volatility"
+  ) +
+  theme_minimal(base_size = 13)
+```
+
+-   Rolling volatility peaked above 260% annualized in early 2025.
+
+<!-- -->
+
+-    Volatility stabilized near 70–90% mid-year, then re-accelerated to 180%+ entering early 2026.
+
+<!-- -->
+
+-    Even at its lowest point, volatility remained above 60%, far exceeding typical large-cap levels (\~15–20%).
+
+**Real World Insight -** Sustained volatility above 100% annualized classifies RR as high-risk equity unsuitable for low volatility portfolios.
+
+## Cumulative Returns
+
+```{r}
+#Cumulative Returns
+both <- merge(rr_returns, sp_returns, join = "inner")
+colnames(both) <- c("RR", "Market")
+cum <- cumprod(1 + both) - 1
+cum_df <- data.frame(Date = as.Date(index(cum)),
+                     RR = as.numeric(cum$RR),
+                     Market = as.numeric(cum$Market))
+cum_long <- tidyr::pivot_longer(cum_df, cols = c("RR","Market"),
+                               names_to = "Series", values_to = "CumReturn")
+ggplot(cum_long, aes(Date, CumReturn, color = Series)) +
+  geom_line(linewidth = 0.9) +
+  scale_y_continuous(labels = percent_format(accuracy = 1)) +
+  labs(
+    title = "Cumulative Returns: RR vs S&P 500",
+    x = NULL, y = "Cumulative Return"
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(legend.title = element_blank())
+```
+
+-   RR reached a cumulative return peak near +190% in October 2025.
+
+<!-- -->
+
+-    However, it retraced to approximately +20% by early 2026 — a drawdown of roughly 170 percentage points.
+
+<!-- -->
+
+-    Over the same period, the S&P 500 steadily gained approximately 15–20% with significantly lower variance.
+
+**Real World Insight -** RR demonstrates high upside convexity but poor return retention, indicating momentum driven rallies and significant capital erosion.
+
+## Drawdowns
+
+```{r}
+#Drawdown Chart
+dd <- Drawdowns(rr_returns)  # xts drawdowns (<= 0)
+dd_df <- xts_to_df(dd, "Drawdown")
+
+ggplot(dd_df, aes(Date, Drawdown)) +
+  geom_area() +
+  scale_y_continuous(labels = percent_format(accuracy = 1)) +
+  labs(
+    title = "RR — Drawdowns Over Time",
+    x = NULL, y = "Drawdown"
+  ) +
+  theme_minimal(base_size = 13)
+```
+
+-   Maximum drawdown reached approximately -65% during early 2025.
+
+<!-- -->
+
+-    Drawdowns frequently remained below -40% for extended periods.
+
+<!-- -->
+
+-    Recovery cycles were volatile and incomplete before new downturns occurred.
+
+**Real World Insight -** A +60% drawdown materially increases behavioral risk, as many investors exit before full recovery which locks in losses.
+
+## 95% Historical VaR
+
+```{r}
+#VaR on Returns
+ret_vec <- as.numeric(na.omit(rr_returns))
+var95 <- quantile(ret_vec, 0.05)  # 5th percentile (loss threshold)
+
+ggplot(rr_ret_df, aes(Return)) +
+  geom_histogram(bins = 40, color = "white") +
+  geom_vline(xintercept = var95, linewidth = 1, linetype = "dashed") +
+  scale_x_continuous(labels = percent_format(accuracy = 1)) +
+  labs(
+    title = "RR — Daily Returns with 95% Historical VaR",
+    x = "Daily Return", y = "Count",
+    caption = paste0("95% Historical VaR ≈ ", scales::percent(var95, accuracy = 0.01))
+  ) +
+  theme_minimal(base_size = 13)
+```
+
+-   The 95% VaR threshold appears near approximately -8% to -10% daily.
+
+<!-- -->
+
+-    This implies that on 5% of trading days, losses exceed roughly 8–10%.
+
+<!-- -->
+
+-    Tail observations extend significantly beyond the VaR cutoff.
+
+**Real World Insight -** A potential 8-10% daily loss places RR among highly volatile small cap equities and increases margin risk exposure.
+
+## Beta Regression (RR vs. Market)
+
+```{r}
+#Beta Graph
+both_df <- data.frame(
+  RR = as.numeric(na.omit(both$RR)),
+  Market = as.numeric(na.omit(both$Market))
+)
+
+ggplot(both_df, aes(Market, RR)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "lm", se = FALSE, linewidth = 1) +
+  scale_x_continuous(labels = percent_format(accuracy = 1)) +
+  scale_y_continuous(labels = percent_format(accuracy = 1)) +
+  labs(
+    title = "RR vs Market — Beta Regression (Daily Returns)",
+    x = "Market Return (S&P 500)", y = "RR Return"
+  ) +
+  theme_minimal(base_size = 13)
+```
+
+-   The regression slope visually suggests a beta near **\~2.5–3.0**, indicating amplified sensitivity to market movements.
+
+<!-- -->
+
+-    The dispersion of points around the regression line suggests moderate R² (visible idiosyncratic risk).
+
+<!-- -->
+
+-    Extreme RR moves occur even when market returns are near zero.
+
+**Real World Insight -** RR exhibits both high systematic risk (beta \> 2) and substantial firm specific risk which makes it highly sensitive to both macro shocks and company specific events.
+
+## Conclusion of Discoveries
+
+```{r}
+#Summary Metrics
+ann_vol <- sd(ret_vec) * sqrt(252)
+mean_ret <- mean(ret_vec)
+sharpe <- (mean_ret / sd(ret_vec)) * sqrt(252)  # simple Sharpe w/ rf≈0
+
+metrics <- data.frame(
+  Metric = c("Mean Daily Return", "Annualized Volatility", "Simple Sharpe (rf≈0)", "95% Hist VaR (Daily)"),
+  Value  = c(
+    percent(mean_ret, accuracy = 0.01),
+    percent(ann_vol, accuracy = 0.01),
+    round(sharpe, 2),
+    percent(var95, accuracy = 0.01)
+  )
+)
+knitr::kable(metrics, caption = "Summary Risk Metrics for RR")
+metrics
+```
+
+-   RR exhibits extreme volatility, with annualized rolling volatility exceeding 250% at peak.
+
+<!-- -->
+
+-    Maximum drawdowns of \~65% indicate significant capital erosion risk.
+
+<!-- -->
+
+-    VaR suggests potential 8–10% daily downside in stressed conditions.
+
+<!-- -->
+
+-    Beta above 2 indicates amplified reaction to market movements.
+
+<!-- -->
+
+-    Performance is characterized by explosive rallies followed by deep retracements.
+
+### Overall Assessment of RR:
+
+Richtech Robotics (RR) demonstrates characteristics consistent with a speculative, high-beta small-cap equity featuring substantial tail risk, time-varying volatility, and elevated drawdown exposure. While upside potential is significant, capital stability risk is equally pronounced.
+
+Investors will have to consistently stay up to date with company events and world news, and keep in touch with any event that can negatively effect RR's growth.
